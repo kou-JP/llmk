@@ -1264,6 +1264,9 @@ local function run_program(name, prog, fn, fdb, postprocess)
     return false
   else
     llmk.util.err_print('info', 'Running command: ' .. cmd)
+    if name == "latex" then
+      print("Latexmk: applying rule 'latex'")
+    end
   end
 
   -- redirect stdout and stderr to NULL in silent mode
