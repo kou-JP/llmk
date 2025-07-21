@@ -216,6 +216,63 @@ function M.replace_specifiers(str, source, target, output_directory)
   return str
 end
 
+-- Extract bibliography database names from \bibliography{} command
+function M.extract_bibliography_files(tex_file)
+  local file = io.open(tex_file, 'r')
+  if not file then
+    return {}
+  end
+  
+  local bib_files = {}
+  local in_comment_block = false
+  
+  -- Process line by line to handle comments properly
+  for line in file:lines() do
+    -- Check for \begin{comment} and \end{comment}
+    if line:match('\\begin%s*{%s*comment%s*}') then
+      in_comment_block = true
+    end
+    if line:match('\\end%s*{%s*comment%s*}') then
+      in_comment_block = false
+      goto continue -- Skip this line entirely
+    end
+    
+    -- Skip processing if we're inside a comment block
+    if in_comment_block then
+      goto continue
+    end
+    
+    -- Find the position of % (comment character)
+    local comment_pos = line:find('%%')
+    local effective_line = line
+    
+    -- If there's a comment, only consider the part before it
+    if comment_pos then
+      effective_line = line:sub(1, comment_pos - 1)
+    end
+    
+    -- Match \bibliography{...} command in the effective (non-commented) part
+    for bib_list in effective_line:gmatch('\\bibliography%s*{([^}]+)}') do
+      -- Split by comma and trim whitespace
+      for bib_file in bib_list:gmatch('[^,]+') do
+        bib_file = bib_file:match('^%s*(.-)%s*$') -- trim whitespace
+        if bib_file ~= '' then
+          -- Add .bib extension if not present
+          if not bib_file:match('%.bib$') then
+            bib_file = bib_file .. '.bib'
+          end
+          bib_files[#bib_files + 1] = bib_file
+        end
+      end
+    end
+    
+    ::continue::
+  end
+  
+  file:close()
+  return bib_files
+end
+
 llmk.util = M
 end
 
@@ -1200,7 +1257,7 @@ local function silencer(cmd)
   return silencer(cmd)
 end
 
-local function run_program(name, prog, fn, fdb, postprocess)
+local function run_program(name, prog, fn, fdb, postprocess, config)
   -- preparation for dry run
   local function concat_cond(tab)
     local res
@@ -1231,11 +1288,39 @@ local function run_program(name, prog, fn, fdb, postprocess)
   end
 
   -- does target exist?
-  if not llmk.core.dry_run and not lfs.isfile(prog.target) then
-    llmk.util.dbg_print('run',
-      'Skipping "%s" because target (%s) does not exist',
-      prog.command, prog.target)
-    return false
+  if name == 'bibtex' then
+    -- Special handling for bibtex: check for .bib files referenced in \bibliography{}
+    if not llmk.core.dry_run then
+      local source_file = llmk.util.replace_specifiers('%S', fn, '', config.output_directory)
+      local bib_files = llmk.util.extract_bibliography_files(source_file)
+      
+      local found_bib = false
+      for _, bib_file in ipairs(bib_files) do
+        local full_bib_path = bib_file
+        if config.output_directory then
+          full_bib_path = config.output_directory .. '/' .. bib_file
+        end
+        if lfs.isfile(full_bib_path) then
+          found_bib = true
+          break
+        end
+      end
+      
+      if not found_bib then
+        llmk.util.dbg_print('run',
+          'Skipping "%s" because no bibliography files referenced in \\bibliography{} exist',
+          prog.command)
+        return false
+      end
+    end
+  else
+    -- Original behavior for other programs
+    if not llmk.core.dry_run and not lfs.isfile(prog.target) then
+      llmk.util.dbg_print('run',
+        'Skipping "%s" because target (%s) does not exist',
+        prog.command, prog.target)
+      return false
+    end
   end
 
   -- is the target modified?
@@ -1251,7 +1336,11 @@ local function run_program(name, prog, fn, fdb, postprocess)
     end
   else
     if llmk.core.dry_run then
-      cond[#cond + 1] = string.format('if the target file "%s" exists', prog.target)
+      if name == 'bibtex' then
+        cond[#cond + 1] = 'if bibliography files referenced in \\bibliography{} exist'
+      else
+        cond[#cond + 1] = string.format('if the target file "%s" exists', prog.target)
+      end
     end
   end
 
@@ -1297,7 +1386,7 @@ local function process_program(programs, name, fn, fdb, config, postprocess)
   local exe_count = 0
   while true do
     exe_count = exe_count + 1
-    run = run_program(name, prog, fn, fdb, postprocess)
+    run = run_program(name, prog, fn, fdb, postprocess, config)
 
     -- if the run is skipped, break immediately
     if not run then break end
