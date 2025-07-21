@@ -469,6 +469,25 @@ local function update_config(config, tab)
   return config
 end
 
+-- Helper function to check if a file is in the source list
+local function is_file_in_source(fn, source)
+  if not source then
+    return false
+  end
+  
+  for _, src_file in ipairs(source) do
+    -- Check both with and without .tex extension
+    local base_fn = fn:match('(.*)%.tex$') or fn
+    local base_src = src_file:match('(.*)%.tex$') or src_file
+    
+    if base_fn == base_src or fn == src_file then
+      return true
+    end
+  end
+  
+  return false
+end
+
 function M.fetch_from_latex_source(fn)
   local tab
   local config = init_config()
@@ -476,6 +495,24 @@ function M.fetch_from_latex_source(fn)
   -- get TOML field and parse it
   local toml, line = llmk.parser.get_toml(fn)
   if toml == '' then
+    -- Check if llmk.toml exists and contains this file in source
+    local f = io.open(llmk.const.llmk_toml)
+    if f ~= nil then
+      local llmk_toml_content = f:read('*all')
+      f:close()
+      
+      local llmk_tab = llmk.parser.parse_toml(llmk_toml_content, {llmk.const.llmk_toml, 1})
+      llmk_tab = llmk.checker.check(llmk_tab)
+      
+      -- Check if the current file is in the source list
+      if is_file_in_source(fn, llmk_tab.source) then
+        llmk.util.err_print('info',
+          'No TOML field found in "%s", but found in llmk.toml source; using llmk.toml config', fn)
+        config = update_config(config, llmk_tab)
+        return config
+      end
+    end
+    
     llmk.util.err_print('warning',
       'Neither TOML field nor magic comment is found in "%s"; ' ..
       'using default config', fn)
