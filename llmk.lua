@@ -410,6 +410,9 @@ end
 do -- The "config" submodule
 local M = {}
 
+-- dependencies
+local lfs = require 'lfs'
+
 local function init_config()
   local config = {}
 
@@ -469,18 +472,53 @@ local function update_config(config, tab)
   return config
 end
 
+-- Helper function to normalize file paths for comparison
+local function normalize_path(path)
+  if not path then
+    return nil
+  end
+  
+  -- Convert to absolute path if relative
+  local abs_path = path
+  if not path:match('^/') and not path:match('^%a:') then -- Not absolute path
+    abs_path = lfs.currentdir() .. '/' .. path
+  end
+  
+  -- Normalize path separators and remove redundant parts
+  abs_path = abs_path:gsub('\\', '/')  -- Convert Windows separators
+  abs_path = abs_path:gsub('/+', '/')  -- Remove duplicate slashes
+  abs_path = abs_path:gsub('/%./', '/') -- Remove ./
+  
+  -- Handle ../ patterns
+  while abs_path:match('/[^/]+/%.%./') do
+    abs_path = abs_path:gsub('/[^/]+/%.%./', '/')
+  end
+  
+  -- Remove trailing slash
+  abs_path = abs_path:gsub('/$', '')
+  
+  return abs_path
+end
+
 -- Helper function to check if a file is in the source list
 local function is_file_in_source(fn, source)
   if not source then
     return false
   end
   
+  local normalized_fn = normalize_path(fn)
+  
   for _, src_file in ipairs(source) do
-    -- Check both with and without .tex extension
-    local base_fn = fn:match('(.*)%.tex$') or fn
-    local base_src = src_file:match('(.*)%.tex$') or src_file
+    local normalized_src = normalize_path(src_file)
     
-    if base_fn == base_src or fn == src_file then
+    -- Check exact path match
+    if normalized_fn == normalized_src then
+      return true
+    end
+    
+    -- Check with .tex extension added
+    if normalized_fn == normalized_src .. '.tex' or 
+       normalized_fn .. '.tex' == normalized_src then
       return true
     end
   end
