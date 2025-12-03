@@ -156,4 +156,60 @@ RSpec.describe "Processing example", :type => :aruba do
       expect(last_command_started).to be_successfully_executed
     end
   end
+
+  context "overridesource.tex" do
+    before(:each) { use_example "llmk.toml", "overridesource.tex" }
+    before(:each) { run_llmk "-v", "-T", "--source=overridesource.tex" }
+
+    it "should produce overridesource.pdf" do
+      expect(stderr).to include(info_line_seq 'overridesource.tex')
+      expect(stderr).to include(info_line_runcmd 'xelatex', 'overridesource.tex')
+
+      expect(file?('overridesource.pdf')).to be true
+
+      expect(last_command_started).to be_successfully_executed
+    end
+  end
+
+  context "overridesource.tex" do
+    before(:each) { use_example "llmk.toml", "overridesource.tex" }
+    before(:each) { run_llmk "-v", "--temporary", "--source=overridesource.tex" }
+
+    it "should produce overridesource.pdf" do
+      expect(stderr).to include(info_line_seq 'overridesource.tex')
+      expect(stderr).to include(info_line_runcmd 'xelatex', 'overridesource.tex')
+
+      expect(file?('overridesource.pdf')).to be true
+
+      expect(last_command_started).to be_successfully_executed
+    end
+  end
+
+  context "overridesource.tex" do
+    before(:each) { use_example "llmk.toml", "overridesource.tex" }
+    before(:each) { run_llmk "-v", "--source=overridesource.tex" }
+
+    it "should fail due to a missing --temporary flag" do
+      expect(stderr).to include("Some options enable non-reproducible behavior and require the --temporary flag. See the manual for details.")
+
+      expect(file?('overridesource.pdf')).to be false
+
+      expect(last_command_started).not_to be_successfully_executed
+    end
+  end
+
+  context "default.tex" do
+    before(:each) { use_example "default.tex" }
+    before(:each) { run_llmk "-v", "-T", "default.tex" }
+
+    it "should produce default.pdf even when --temporary is given alone" do
+      expect(stderr).to include(info_line_seq 'default.tex')
+      expect(stderr).to include(info_line_runcmd 'lualatex', 'default.tex')
+
+      expect(file?('default.pdf')).to be true
+
+      expect(last_command_started).to be_successfully_executed
+    end
+  end
+
 end

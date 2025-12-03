@@ -16,6 +16,10 @@ RSpec.describe "Showing help", :type => :aruba do
         -n, --dry-run         Show what would have been executed.
         -q, --quiet           Suppress most messages.
         -s, --silent          Silence messages from called programs.
+        --source              Substitute the given path for the `source` entry on
+                              `llmk.toml` at runtime.  This is a temporary
+                              feature and is prohibited by default.
+        -T, --temporary       Allow the temporary features.
         -v, --verbose         Print additional information.
         -V, --version         Print the version number.
 

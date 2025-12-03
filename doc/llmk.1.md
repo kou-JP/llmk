@@ -28,6 +28,11 @@ If one or more FILE(s) are specified, `llmk` reads the TOML fields or other supp
   Suppress warnings and most error messages.
 * `-s`, `--silent`:
   Silence messages from called programs.
+* `--source`:
+  Substitute the given path for the `source` entry in `llmk.toml` at runtime.
+  This is a temporary feature and is prohibited by default unless explicitly enabled.
+* `-T`, `--temporary`:
+  Allow temporary features.
 * `-v`, `--verbose`:
   Print additional information (e.g., running commands).
 * `-V`, `--version`:
