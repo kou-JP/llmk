@@ -216,6 +216,12 @@ function M.replace_specifiers(str, source, target, output_directory)
   return str
 end
 
+function M.merge_tables(one, another)
+    for k, v in pairs(another) do
+      one[k] = v
+    end
+end
+
 llmk.util = M
 end
 
@@ -844,6 +850,12 @@ function M.parse_toml(toml, file_info)
     step()
   end
 
+  -- update entries from command line args
+  if llmk.cli.temporary_feature and llmk.cli.temporary_feature.config_override then
+      for k, v in pairs(llmk.cli.temporary_feature.config_override) do
+          res[k] = v
+      end
+  end
   return res
 end
 
@@ -1406,6 +1418,10 @@ Options:
   -n, --dry-run         Show what would have been executed.
   -q, --quiet           Suppress most messages.
   -s, --silent          Silence messages from called programs.
+  --source              Substitute the given path for the `source` entry on
+                        `llmk.toml` at runtime.  This is a temporary
+                        feature and is prohibited by default.
+  -T, --temporary       Allow the temporary features.
   -v, --verbose         Print additional information.
   -V, --version         Print the version number.
 
@@ -1470,6 +1486,18 @@ local function read_options()
     return tab
   end
 
+  local function register_temporary_feature(key, value)
+    if M.temporary_feature == nil then
+      M.temporary_feature = {}
+    end
+    if M.temporary_feature[key] == nil then
+      M.temporary_feature[key] = value
+    else
+      M.temporary_feature[key] = M.merge_tables(M.temporary_feature[key], value)
+    end
+  end
+
+  local allow_temporary_feature = false
   local opts = getopt(arg, 'd')
   for _, tp in pairs(opts) do
     k, v = tp[1], tp[2]
@@ -1510,11 +1538,23 @@ local function read_options()
     -- dry run
     elseif (curr_arg == '-n') or (curr_arg == '--dry-run') then
       llmk.core.dry_run = true
+    -- config override
+    elseif (curr_arg == '--source') then
+      register_temporary_feature("config_override", {source = v})
+    --allow temporary features
+    elseif (curr_arg == '-T') or (curr_arg == '--temporary') then
+      allow_temporary_feature=true
     -- problem
     else
       llmk.util.err_print('error', 'unknown option: ' .. curr_arg)
       os.exit(C.exit_error)
     end
+  end
+
+  -- Check if temporary features are along with `-T` flag.
+  if M.temporary_feature and not allow_temporary_feature then
+      llmk.util.err_print('error', 'Some options enable non-reproducible behavior and require the --temporary flag. See the manual for details.')
+      os.exit(C.exit_error)
   end
 
   return action

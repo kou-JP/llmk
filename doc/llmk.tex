@@ -182,6 +182,16 @@ successfully. When this is specified, all other options and arguments are
 ignored.
 \end{clopt}
 
+\begin{clopt}{\lopt{source}}
+Substitutes the given argument value for the \code{source} entry in
+\code{llmk.toml} at runtime. This is useful when you want to build an
+alternative source file instead of the one specified in \code{llmk.toml},
+while keeping the rest of configuration unchanged. This option must be
+used with \sopt{T} or \lopt{temporary} since this is a temporary
+feature. Refer to Section \ref{sec:temporary_features} for more details
+about temporary features.
+\end{clopt}
+
 \begin{clopt}{\sopt{n}, \lopt{dry-run}}
 Show what would have been executed without actually invoking the commands. This
 flag is useful if you want to make sure whether your configuration will work as
@@ -191,6 +201,11 @@ further detailed information.
 
 \begin{clopt}{\sopt{q}, \lopt{quiet}}
 This suppress most of the messages from the program.
+\end{clopt}
+
+\begin{clopt}{\sopt{T}, \lopt{temporary}}
+Allows temporary features. Refer to Section \ref{sec:temporary_features}
+for more details.
 \end{clopt}
 
 \begin{clopt}{\sopt{s}, \lopt{silent}}
@@ -867,6 +882,16 @@ For example, the following two configuration are equivalent:\\
 \documentclass{article}
 \end{lstlisting}
 \end{minipage}
+
+\section{Temporary Features}
+\label{sec:temporary_features}
+\prog{llmk} provides some features, temporary features, that are
+useful but should not be used regularly. These features may break the
+consistency of workflow definition files therefore should be limited
+to temporary use. The temporary features are prohibited unless the
+command-line option \sopt{T} or \lopt{temporary} is specified. For
+example, \lopt{source} must be used with \lopt{temporary}; otherwise
+\prog{llmk} raises an error.
 
 \section{Acknowledgements}
 
