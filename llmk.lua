@@ -216,7 +216,7 @@ function M.replace_specifiers(str, source, target, output_directory)
   return str
 end
 
--- Extract bibliography database names from \bibliography{} command
+-- Extract bibliography database names from \bibliography{} and \addbibresource{} commands
 function M.extract_bibliography_files(tex_file)
   local file = io.open(tex_file, 'r')
   if not file then
@@ -251,11 +251,23 @@ function M.extract_bibliography_files(tex_file)
       effective_line = line:sub(1, comment_pos - 1)
     end
     
-    -- Match \bibliography{...} command in the effective (non-commented) part
-    for bib_list in effective_line:gmatch('\\bibliography%s*{([^}]+)}') do
-      -- Split by comma and trim whitespace
-      for bib_file in bib_list:gmatch('[^,]+') do
-        bib_file = bib_file:match('^%s*(.-)%s*$') -- trim whitespace
+    -- Helper function to process and add bibliography files
+    local function add_bib_files(files_string, is_comma_separated)
+      if is_comma_separated then
+        -- Split by comma and trim whitespace (\bibliography uses comma-separated list)
+        for bib_file in files_string:gmatch('[^,]+') do
+          bib_file = bib_file:match('^%s*(.-)%s*$') -- trim whitespace
+          if bib_file ~= '' then
+            -- Add .bib extension if not present
+            if not bib_file:match('%.bib$') then
+              bib_file = bib_file .. '.bib'
+            end
+            bib_files[#bib_files + 1] = bib_file
+          end
+        end
+      else
+        -- Single file (\addbibresource uses single file per command)
+        local bib_file = files_string:match('^%s*(.-)%s*$') -- trim whitespace
         if bib_file ~= '' then
           -- Add .bib extension if not present
           if not bib_file:match('%.bib$') then
@@ -264,6 +276,16 @@ function M.extract_bibliography_files(tex_file)
           bib_files[#bib_files + 1] = bib_file
         end
       end
+    end
+    
+    -- Match \bibliography{...} command (bibtex style - comma-separated list)
+    for bib_list in effective_line:gmatch('\\bibliography%s*{([^}]+)}') do
+      add_bib_files(bib_list, true)
+    end
+    
+    -- Match \addbibresource{...} command (biblatex style - single file)
+    for bib_resource in effective_line:gmatch('\\addbibresource%s*{([^}]+)}') do
+      add_bib_files(bib_resource, false)
     end
     
     ::continue::
@@ -1364,7 +1386,7 @@ local function run_program(name, prog, fn, fdb, postprocess, config)
 
   -- does target exist?
   if name == 'bibtex' then
-    -- Special handling for bibtex: check for .bib files referenced in \bibliography{}
+    -- Special handling for bibtex: check for .bib files referenced in \bibliography{} or \addbibresource{}
     if not llmk.core.dry_run then
       local source_file = llmk.util.replace_specifiers('%S', fn, '', config.output_directory)
       local bib_files = llmk.util.extract_bibliography_files(source_file)
@@ -1383,7 +1405,7 @@ local function run_program(name, prog, fn, fdb, postprocess, config)
       
       if not found_bib then
         llmk.util.dbg_print('run',
-          'Skipping "%s" because no bibliography files referenced in \\bibliography{} exist',
+          'Skipping "%s" because no bibliography files referenced in \\bibliography{} or \\addbibresource{} exist',
           prog.command)
         return false
       end
@@ -1412,7 +1434,7 @@ local function run_program(name, prog, fn, fdb, postprocess, config)
   else
     if llmk.core.dry_run then
       if name == 'bibtex' then
-        cond[#cond + 1] = 'if bibliography files referenced in \\bibliography{} exist'
+        cond[#cond + 1] = 'if bibliography files referenced in \\bibliography{} or \\addbibresource{} exist'
       else
         cond[#cond + 1] = string.format('if the target file "%s" exists', prog.target)
       end
