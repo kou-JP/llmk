@@ -1,3 +1,13 @@
+## Personal Fork of llmk
+
+This is a personal fork of llmk with the following modifications:
+
+* Added support for VS Code LaTeX Workshop integration
+* Modified BibTeX execution to automatically detect and process based on `\bibliography` and `\addbibresource` commands in TeX files
+* Added fallback functionality to use `llmk.toml` when TOML field is not found
+
+---
+
 ![llmk: The Light LaTeX Make](./llmk-logo.png)
 
 [![CI](https://github.com/wtsnjp/llmk/actions/workflows/ci.yml/badge.svg)](https://github.com/wtsnjp/llmk/actions/workflows/ci.yml)
